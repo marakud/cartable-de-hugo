@@ -1,4 +1,4 @@
--- Le cartable de Harry : une seule table. Chaque ligne est un élément
+-- Le cartable : une table principale, un compte par enfant. Chaque ligne est un élément
 -- (un cours, un devoir, une note, une leçon vue, une erreur, ou les réglages).
 create table if not exists public.items (
   user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
@@ -31,3 +31,17 @@ alter table public.items replica identity full;
 do $$ begin
   alter publication supabase_realtime add table public.items;
 exception when duplicate_object then null; end $$;
+
+-- Compteur d'appels à Claude : /api/claude ajoute une ligne à chaque appel et refuse
+-- au-delà de CLAUDE_DAILY_LIMIT par jour. Pas de règle de suppression : on ne peut pas effacer son compteur.
+create table if not exists public.claude_usage (
+  id         bigint generated always as identity primary key,
+  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists claude_usage_user_day on public.claude_usage (user_id, created_at);
+alter table public.claude_usage enable row level security;
+drop policy if exists "lire mon compteur" on public.claude_usage;
+create policy "lire mon compteur" on public.claude_usage for select using (auth.uid() = user_id);
+drop policy if exists "ajouter a mon compteur" on public.claude_usage;
+create policy "ajouter a mon compteur" on public.claude_usage for insert with check (auth.uid() = user_id);

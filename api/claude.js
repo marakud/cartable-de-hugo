@@ -1,5 +1,5 @@
 // Fonction Vercel : la page lui envoie une consigne (et parfois une capture Pronote),
-// elle vérifie que c'est bien Harry qui est connecté, puis demande à Claude.
+// elle vérifie qu'un compte est connecté et qu'il n'a pas dépassé sa limite du jour, puis demande à Claude.
 // La clé ANTHROPIC_API_KEY reste ici, sur le serveur, jamais dans la page.
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
@@ -7,6 +7,8 @@ import { createClient } from "@supabase/supabase-js";
 const anthropic = new Anthropic(); // lit ANTHROPIC_API_KEY
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 const ALLOWED = (process.env.ALLOWED_EMAILS || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+const OPEN_TO_ALL = ALLOWED.includes("*");
+const DAILY_LIMIT = Number(process.env.CLAUDE_DAILY_LIMIT) || 30;
 const MODEL = process.env.CLAUDE_MODEL || "claude-opus-5-5";
 
 export const config = { maxDuration: 60 };
@@ -17,7 +19,14 @@ export default async function handler(req, res) {
   const token = (req.headers.authorization || "").replace(/^Bearer /, "");
   const { data: { user } = {}, error } = await supabase.auth.getUser(token);
   if (error || !user) return res.status(401).json({ code: "not_granted" });
-  if (!ALLOWED.includes((user.email || "").toLowerCase())) return res.status(403).json({ code: "not_granted" });
+  if (!OPEN_TO_ALL && !ALLOWED.includes((user.email || "").toLowerCase())) return res.status(403).json({ code: "not_granted" });
+
+  // Compteur du jour, dans la table claude_usage (chaque compte ne voit et n'ajoute que ses propres lignes).
+  const asUser = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, { global: { headers: { authorization: "Bearer " + token } } });
+  const since = new Date(); since.setUTCHours(0, 0, 0, 0);
+  const { count, error: countError } = await asUser.from("claude_usage").select("*", { count: "exact", head: true }).gte("created_at", since.toISOString());
+  if (countError) return res.status(500).json({ code: "upstream_error", message: "Table claude_usage introuvable : relancez supabase/schema.sql." });
+  if (count >= DAILY_LIMIT) return res.status(429).json({ code: "rate_limited", message: "Limite du jour atteinte, réessaie demain." });
 
   const { prompt, images = [] } = req.body || {};
   if (typeof prompt !== "string" || !prompt.trim() || prompt.length > 20000) return res.status(400).json({ code: "invalid_request" });
@@ -28,6 +37,8 @@ export default async function handler(req, res) {
     { type: "text", text: prompt }
   ];
 
+  await asUser.from("claude_usage").insert({});
+
   try {
     const msg = await anthropic.beta.messages.create({
       model: MODEL,
@@ -36,7 +47,7 @@ export default async function handler(req, res) {
       // Si Claude refuse une demande pour raison de sécurité, l'API essaie automatiquement un autre modèle.
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
-      system: "Tu aides Harry, un élève de 6e en France, à s'organiser et à réviser. Réponds en français simple et bienveillant.",
+      system: "Tu aides un élève de collège en France, à s'organiser et à réviser. Réponds en français simple et bienveillant.",
       messages: [{ role: "user", content }]
     });
     if (msg.stop_reason === "refusal") return res.status(422).json({ code: "refused" });
