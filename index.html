@@ -813,30 +813,29 @@ function makeSample(sb) {
   return sample;
 }
 
-function loginView(sb) {
+function loginView(sb, appEmail) {
   $("#btn-settings").hidden = true;
   $("#tabs").innerHTML = "";
   $("#view").innerHTML = `<section class="view"><div class="card seyes">
     <h2>Bonjour Harry</h2>
-    <p>Entre ton adresse e-mail. Tu vas recevoir un lien pour ouvrir ton cartable.</p>
+    <p>Tape ton code secret. Tu n'auras à le faire qu'une fois sur cet appareil.</p>
     <form id="login" class="row">
-      <label class="f" style="flex:3 1 240px">Adresse e-mail<input id="login-email" type="email" required autocomplete="email"></label>
-      <button class="btn" type="submit">Recevoir le lien</button>
+      <label class="f" style="flex:3 1 240px">Code secret<input id="login-code" type="password" required autocomplete="current-password"></label>
+      <button class="btn" type="submit">Ouvrir mon cartable</button>
     </form>
     <p class="status" id="login-status"></p>
   </div></section>`;
   $("#login").addEventListener("submit", async e => {
     e.preventDefault(); e.stopPropagation();
-    const st = $("#login-status"); st.textContent = "Envoi…";
-    const { error } = await sb.auth.signInWithOtp({ email: $("#login-email").value.trim(), options: { emailRedirectTo: location.origin, shouldCreateUser: true } });
-    if (!error) { st.textContent = "C'est envoyé ! Ouvre l'e-mail et clique sur le lien."; return; }
+    const st = $("#login-status"); st.textContent = "Ouverture…";
+    if (!appEmail) { st.textContent = "Il manque APP_EMAIL sur Vercel (voir LISEZ-MOI)."; return; }
+    const { error } = await sb.auth.signInWithPassword({ email: appEmail, password: $("#login-code").value });
+    if (!error) return;
     const m = String(error.message || "");
-    const why = error.status === 429 || /rate limit|security purposes/i.test(m) ? "Trop d'essais : attends une heure avant de réessayer."
-      : /not authorized|not allowed/i.test(m) ? "Supabase n'envoie pas d'e-mail à cette adresse : ajoute-la à l'équipe du projet Supabase, ou configure un envoi d'e-mails (SMTP)."
-      : /signups not allowed|signup.*disabled/i.test(m) ? "Les inscriptions sont fermées dans Supabase et ce compte n'existe pas encore."
-      : /invalid api key|failed to fetch/i.test(m) ? "Le site n'arrive pas à joindre Supabase : vérifie SUPABASE_URL et SUPABASE_ANON_KEY sur Vercel, puis redéploie."
-      : "Ça n'a pas marché.";
-    st.textContent = why + " (Message de Supabase : " + m + ")";
+    st.textContent = /invalid login credentials/i.test(m) ? "Ce n'est pas le bon code. Réessaie, ou demande-le à ton parent."
+      : error.status === 429 ? "Trop d'essais : attends quelques minutes."
+      : /invalid api key|failed to fetch/i.test(m) ? "Le site n'arrive pas à joindre Supabase : vérifie SUPABASE_URL et SUPABASE_ANON_KEY sur Vercel."
+      : "Ça n'a pas marché. (Message de Supabase : " + m + ")";
   });
 }
 
@@ -848,7 +847,7 @@ function loginView(sb) {
   const sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
   const { data: { session } } = await sb.auth.getSession();
   sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_IN" && !db) location.reload(); if (ev === "SIGNED_OUT") location.reload(); });
-  if (!session) { $("#sync").textContent = ""; loginView(sb); return; }
+  if (!session) { $("#sync").textContent = ""; loginView(sb, cfg.appEmail); return; }
   const out = document.createElement("button");
   out.className = "iconbtn"; out.type = "button"; out.textContent = "Se déconnecter";
   out.onclick = () => sb.auth.signOut();

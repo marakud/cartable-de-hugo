@@ -4,6 +4,8 @@ export default function handler(req, res) {
   res.setHeader("cache-control", "no-store");
   res.status(200).json({
     supabaseUrl: process.env.SUPABASE_URL || "",
-    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || ""
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
+    // Le compte unique du cartable : la page ne demande que son mot de passe (le « code secret »).
+    appEmail: process.env.APP_EMAIL || ""
   });
 }
