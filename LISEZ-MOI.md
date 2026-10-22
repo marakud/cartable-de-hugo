@@ -61,6 +61,7 @@ Pour l'ordre de grandeur : une dictée ou un quiz coûte environ 2 à 5 centimes
 ## 6. Première connexion
 
 1. Ouvrez le site, entrez l'e-mail de Harry et cliquez sur **Recevoir le lien**.
+    - Sans réglage d'envoi d'e-mails (SMTP), Supabase n'écrit qu'aux membres de l'équipe du projet, et seulement quelques e-mails par heure. Si l'e-mail de Harry n'est pas celui du compte Supabase, invitez-le dans **Organization settings → Team**, ou configurez un SMTP dans **Authentication → Emails → SMTP Settings**.
 2. Ouvrez l'e-mail reçu et cliquez sur le lien : le cartable s'ouvre.
 3. **Fermez ensuite les inscriptions** : dans Supabase, **Authentication → Sign In / Providers**, désactivez **Allow new users to sign up**. Harry pourra toujours se connecter, mais personne d'autre ne pourra créer de compte.
 
