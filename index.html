@@ -936,7 +936,14 @@ function loginView(sb) {
     e.preventDefault(); e.stopPropagation();
     const st = $("#login-status"); st.textContent = "Envoi…";
     const { error } = await sb.auth.signInWithOtp({ email: $("#login-email").value.trim(), options: { emailRedirectTo: location.origin, shouldCreateUser: true } });
-    st.textContent = error ? "Ça n'a pas marché : vérifie l'adresse ou demande à un parent." : "C'est envoyé ! Ouvre l'e-mail et clique sur le lien.";
+    if (!error) { st.textContent = "C'est envoyé ! Ouvre l'e-mail et clique sur le lien."; return; }
+    const m = String(error.message || "");
+    const why = error.status === 429 || /rate limit|security purposes/i.test(m) ? "Trop d'essais : attends une heure avant de réessayer."
+      : /not authorized|not allowed/i.test(m) ? "Supabase n'envoie pas d'e-mail à cette adresse : ajoute-la à l'équipe du projet Supabase, ou configure un envoi d'e-mails (SMTP)."
+      : /signups not allowed|signup.*disabled/i.test(m) ? "Les inscriptions sont fermées dans Supabase et ce compte n'existe pas encore."
+      : /invalid api key|failed to fetch/i.test(m) ? "Le site n'arrive pas à joindre Supabase : vérifie SUPABASE_URL et SUPABASE_ANON_KEY sur Vercel, puis redéploie."
+      : "Ça n'a pas marché.";
+    st.textContent = why + " (Message de Supabase : " + m + ")";
   });
 }
 
