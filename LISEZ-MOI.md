@@ -9,7 +9,7 @@ Ce guide est pour **le parent** de Harry. Il faut environ 30 minutes. Tout est g
 | Fichier | À quoi il sert |
 | --- | --- |
 | `index.html` | La page du cartable |
-| `api/claude.js` | Demande à Claude de lire les captures Pronote et de créer les dictées et les quiz. La clé Claude reste sur le serveur. |
+| `api/claude.js` | Demande à Claude de lire les captures Pronote et de créer les quiz. La clé Claude reste sur le serveur. |
 | `api/config.js` | Donne à la page l'adresse de la base Supabase |
 | `supabase/schema.sql` | Crée la table de la base. Chaque compte ne voit que ses propres données. |
 | `.env.example` | La liste des réglages à mettre dans Vercel |
@@ -35,7 +35,7 @@ Ce guide est pour **le parent** de Harry. Il faut environ 30 minutes. Tout est g
 2. **Fixez une limite de dépense mensuelle** (par exemple 5 €) dans **Billing → Limits**.
 3. Dans **API Keys**, créez une clé et copiez-la. Elle commence par `sk-ant-`.
 
-Pour l'ordre de grandeur : une dictée ou un quiz coûte environ 2 à 5 centimes, et la lecture d’une capture Pronote environ 5 à 10 centimes. Avec une limite à 5 € par mois, il n’y a pas de mauvaise surprise.
+Pour l'ordre de grandeur : un quiz coûte environ 2 à 5 centimes, et la lecture d’une capture Pronote environ 5 à 10 centimes. Avec une limite à 5 € par mois, il n’y a pas de mauvaise surprise.
 
 ## 4. Mettre en ligne sur Vercel
 

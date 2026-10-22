@@ -148,14 +148,7 @@ details[open] > summary::before { content: "– "; }
 .err.seen { opacity: .6; }
 .streak { font: 800 1.6rem var(--f-display); }
 
-/* Dictée */
-.dict-text { font-size: 1.1rem; line-height: 1.9; }
-.dict-text .ok { }
-.dict-text .miss { background: var(--bad-soft); color: var(--bad); border-radius: 4px; padding: 0 3px; }
-.dict-text .extra { color: var(--bad); text-decoration: line-through; }
-.dict-text .sub { background: var(--bad-soft); border-radius: 4px; padding: 0 3px; }
-.dict-text .sub s { color: var(--bad); }
-.dict-text .sub b { color: var(--good); }
+
 .score { font: 800 2rem var(--f-display); }
 .qcm { display: grid; gap: 6px; }
 .qcm button.opt { text-align: left; border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); border-radius: 10px; padding: 9px 12px; font: inherit; cursor: pointer; }
@@ -363,7 +356,7 @@ function vJour() {
 const CONSEILS = [
   "Apprends une leçon <span class='mark'>le jour même</span> où tu l'as eue : c'est 2 fois plus rapide que la veille du contrôle.",
   "Cache ta leçon et essaie de la réciter à voix haute. Ce que tu n'arrives pas à dire, c'est ce qu'il faut revoir.",
-  "Pour une dictée, relis-toi 3 fois : une fois pour le sens, une fois pour les accords, une fois pour les accents.",
+  "Quand tu écris, relis-toi 3 fois : une fois pour le sens, une fois pour les accords, une fois pour les accents.",
   "Fais tes devoirs les plus difficiles en premier, quand ton cerveau est encore frais.",
   "Une erreur notée dans ton cahier d'erreurs, c'est une erreur que tu ne referas plus.",
   "Range ton bureau avant de commencer : moins de choses autour, plus de concentration.",
@@ -561,7 +554,7 @@ function vErreurs() {
 }
 
 /* ---------- S'entraîner ---------- */
-let train = { mode: "dictee", point: "", ref: null, quiz: null, busy: false, ctl: null };
+let train = { point: "", quiz: null, ctl: null };
 function pointsFaibles() {
   const pts = [];
   for (const v of S.vu.filter(v => (v.maitrise || 0) < 2)) pts.push({ m: v.matiere, t: v.titre + (v.details ? " (" + v.details + ")" : "") });
@@ -575,87 +568,21 @@ function pickerHtml() {
 }
 function refreshTrainingPicker() { const el = $("#picker"); if (el) el.innerHTML = pickerHtml(); }
 function vEntrainement() {
-  if (!sample) return `<div class="card"><h2>S'entraîner</h2><div class="empty"><div class="doodle">✎</div><p>Connecte-toi pour créer des dictées et des quiz.</p></div></div>`;
+  if (!sample) return `<div class="card"><h2>S'entraîner</h2><div class="empty"><div class="doodle">✎</div><p>Connecte-toi pour créer des quiz.</p></div></div>`;
   return `
   <div class="card">
     <div class="row between"><h2>S'entraîner</h2>
-      <div class="row"><button class="btn ${train.mode === "dictee" ? "" : "ghost"}" data-mode="dictee" type="button">Dictée</button><button class="btn ${train.mode === "quiz" ? "" : "ghost"}" data-mode="quiz" type="button">Quiz</button></div></div>
+      <span class="muted small">Quiz</span></div>
     <p class="muted small">Choisis un point que tu maîtrises moins, ou écris-le toi-même.</p>
     <div id="picker">${pickerHtml()}</div>
     <div class="row">
-      <label class="f" style="flex:3 1 260px">Sur quoi ?<input id="tr-point" value="${esc(train.point)}" placeholder="${train.mode === "dictee" ? "les accords dans le groupe nominal" : "les fractions, le présent, la préhistoire…"}"></label>
-      ${train.mode === "dictee" ? `<label class="f">Longueur<select id="tr-len"><option value="court">Courte</option><option value="moyen" selected>Moyenne</option><option value="long">Longue</option></select></label>`
-        : `<label class="f">Matière<input id="tr-mat" list="matieres" placeholder="Français"></label>`}
+      <label class="f" style="flex:3 1 260px">Sur quoi ?<input id="tr-point" value="${esc(train.point)}" placeholder="les fractions, le présent, la préhistoire…"></label>
+      <label class="f">Matière<input id="tr-mat" list="matieres" placeholder="Français"></label>
     </div>
-    <div class="row"><button class="btn" id="tr-go" type="button">${train.mode === "dictee" ? "Créer ma dictée" : "Créer mon quiz"}</button><span class="status" id="tr-status"></span></div>
+    <div class="row"><button class="btn" id="tr-go" type="button">Créer mon quiz</button><span class="status" id="tr-status"></span></div>
   </div>
   <div id="tr-out"></div>
   ${datalist()}`;
-}
-function sayFr(text) {
-  try {
-    const ss = window.speechSynthesis; if (!ss) return false;
-    ss.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "fr-FR"; u.rate = .78;
-    const v = ss.getVoices().find(v => /^fr/i.test(v.lang)); if (v) u.voice = v;
-    ss.speak(u); return true;
-  } catch { return false; }
-}
-const withPunct = s => s.replace(/,/g, " virgule, ").replace(/\./g, " point. ").replace(/!/g, " point d'exclamation. ").replace(/\?/g, " point d'interrogation. ").replace(/:/g, " deux points, ").replace(/;/g, " point-virgule, ");
-function dicteeHtml() {
-  const r = train.ref; if (!r) return "";
-  return `<div class="card">
-    <div class="row between"><h3>${esc(r.titre)}</h3><span class="muted small">${r.phrases.length} phrases</span></div>
-    <p class="small muted">Écoute chaque phrase, écris-la, puis passe à la suivante. Le texte reste caché jusqu'à la correction.</p>
-    <div class="row">
-      <button class="btn" data-say="cur" type="button">Écouter la phrase ${train.i + 1}</button>
-      <button class="btn soft" data-say="next" type="button" ${train.i >= r.phrases.length - 1 ? "disabled" : ""}>Phrase suivante</button>
-      <button class="btn ghost" data-say="all" type="button">Tout relire</button>
-      <label class="row small"><input type="checkbox" id="tr-punct" ${train.punct ? "checked" : ""}> dire la ponctuation</label>
-    </div>
-    <p class="small muted" id="tts-note" hidden>Ton appareil ne lit pas à voix haute ici. Demande à quelqu'un de te lire la phrase : <button class="link" data-show="cur" type="button">voir la phrase ${train.i + 1}</button></p>
-    <p id="peek" class="small" hidden></p>
-    <textarea id="tr-ecrit" rows="7" placeholder="J'écris ma dictée ici…" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
-    <div class="row"><button class="btn good" id="tr-corrige" type="button">Corriger ma dictée</button></div>
-    <div id="tr-correction"></div>
-  </div>`;
-}
-function tokens(s) { return String(s).replace(/[’`]/g, "'").replace(/\s+/g, " ").trim().match(/[\p{L}\p{N}'-]+|[^\s\p{L}\p{N}]/gu) || []; }
-function diff(a, b) {
-  const n = a.length, m = b.length, dp = Array.from({ length: n + 1 }, () => new Int16Array(m + 1));
-  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
-  const ops = []; let i = 0, j = 0;
-  while (i < n || j < m) {
-    if (i < n && j < m && a[i] === b[j]) { ops.push({ t: "eq", a: a[i] }); i++; j++; }
-    else if (j < m && (i >= n || dp[i][j + 1] >= dp[i + 1][j])) { ops.push({ t: "ins", b: b[j] }); j++; }
-    else { ops.push({ t: "del", a: a[i] }); i++; }
-  }
-  const out = [];
-  for (let k = 0; k < ops.length; k++) {
-    const o = ops[k], nx = ops[k + 1];
-    if ((o.t === "del" && nx?.t === "ins") || (o.t === "ins" && nx?.t === "del")) { out.push({ t: "sub", a: o.a ?? nx.a, b: o.b ?? nx.b }); k++; }
-    else out.push(o);
-  }
-  return out;
-}
-function corriger() {
-  const ref = train.ref.phrases.join(" "), ecrit = $("#tr-ecrit").value;
-  if (!ecrit.trim()) return toast("Écris d'abord ta dictée.");
-  const ops = diff(tokens(ref), tokens(ecrit));
-  const fautes = ops.filter(o => o.t !== "eq");
-  train.fautes = fautes.filter(o => o.t === "sub" && /\p{L}/u.test(o.a)).map(o => ({ erreur: o.b, correction: o.a }));
-  const words = tokens(ref).filter(w => /\p{L}/u.test(w)).length;
-  const html = ops.map(o => o.t === "eq" ? esc(o.a) : o.t === "del" ? `<span class="miss" title="oublié">${esc(o.a)}</span>` : o.t === "ins" ? `<span class="extra" title="en trop">${esc(o.b)}</span>` : `<span class="sub"><s>${esc(o.b)}</s> <b>${esc(o.a)}</b></span>`).join(" ").replace(/ ([.,;:!?)])/g, "$1");
-  const n = fautes.length;
-  $("#tr-correction").innerHTML = `<div class="stack" style="margin-top:6px">
-    <div class="row between"><p class="score num">${n} faute${n > 1 ? "s" : ""}</p><p class="muted small">sur ${words} mots</p></div>
-    <p>${n === 0 ? "Zéro faute, bravo !" : n <= 3 ? "Très bien, il ne reste presque rien." : "Courage : regarde bien les mots en rouge, c'est là qu'on progresse."}</p>
-    <div class="dict-text">${html}</div>
-    <p class="small muted"><span class="sub" style="padding:0 3px"><s>barré</s> <b>vert</b></span> : ce que tu as écrit et la bonne orthographe. <span class="miss" style="padding:0 3px">rouge</span> : mot oublié.</p>
-    <div class="row">${train.fautes.length ? `<button class="btn" id="tr-save-err" type="button">Mettre mes ${train.fautes.length} faute${train.fautes.length > 1 ? "s" : ""} dans le cahier d'erreurs</button>` : ""}<button class="btn soft" id="tr-explique" type="button">Explique-moi mes fautes</button></div>
-    <div id="tr-expl" class="small"></div>
-  </div>`;
 }
 function quizHtml() {
   const q = train.quiz; if (!q) return "";
@@ -673,22 +600,11 @@ async function generer() {
   train.point = point; train.ctl?.abort(); train.ctl = new AbortController();
   const st = $("#tr-status"), btn = $("#tr-go"); btn.disabled = true; st.textContent = "Claude prépare ton exercice…";
   try {
-    if (train.mode === "dictee") {
-      const len = $("#tr-len").value, mots = { court: "40 à 60", moyen: "70 à 100", long: "110 à 140" }[len];
-      const r = await sample.json(`Tu es professeur de français en classe de 6e en France. Écris une dictée inédite de ${mots} mots, adaptée à un élève de 11 ans, qui fait travailler surtout ce point : « ${point} ». Le texte raconte une petite histoire ou décrit une scène, avec un vocabulaire de 6e, et utilise le point travaillé au moins 6 fois. Réponds uniquement en JSON : {"titre": "titre court", "phrases": ["phrase 1.", "phrase 2.", ...], "points": ["ce qu'il faut surveiller, 2 ou 3 conseils courts"]}`, { signal: train.ctl.signal, cache: false });
-      if (!Array.isArray(r?.phrases) || !r.phrases.length) throw { code: "invalid_json" };
-      train.ref = { titre: String(r.titre || "Ma dictée"), phrases: r.phrases.map(String), points: (r.points || []).map(String) };
-      train.i = 0; train.quiz = null;
-      $("#tr-out").innerHTML = dicteeHtml();
-      if (train.ref.points.length) $("#tr-out .card").insertAdjacentHTML("beforeend", `<details><summary>Ce qu'il faut surveiller</summary><ul class="small">${train.ref.points.map(p => `<li>${esc(p)}</li>`).join("")}</ul></details>`);
-    } else {
       const mat = $("#tr-mat").value.trim();
       const r = await sample.json(`Tu es professeur en classe de 6e en France${mat ? ", en " + mat : ""}. Crée un quiz de 6 questions à choix multiple sur : « ${point} », niveau 6e, du plus facile au plus difficile. Réponds uniquement en JSON : {"titre": "titre court", "questions": [{"question": "...", "choix": ["A", "B", "C"], "bonne": 0, "explication": "une phrase qui explique la bonne réponse"}]} — "bonne" est l'indice (à partir de 0) de la bonne réponse, 3 ou 4 choix par question.`, { signal: train.ctl.signal, cache: false });
       if (!Array.isArray(r?.questions)) throw { code: "invalid_json" };
       train.quiz = { titre: String(r.titre || "Mon quiz"), matiere: mat || "Révisions", questions: r.questions.filter(q => Array.isArray(q.choix)).map(q => ({ question: String(q.question), choix: q.choix.map(String), bonne: Number(q.bonne) || 0, explication: String(q.explication || ""), pick: null })) };
-      train.ref = null;
       $("#tr-out").innerHTML = quizHtml();
-    }
     st.textContent = "";
   } catch (e) {
     st.textContent = e?.code === "cancelled" ? "" : e?.code === "not_granted" ? "Il faut autoriser Claude pour créer des exercices." : e?.code === "rate_limited" ? "Trop de demandes : réessaie dans un moment." : "Ça n'a pas marché, réessaie.";
@@ -780,31 +696,9 @@ document.addEventListener("click", async e => {
   if (d.revu) { const er = S.erreurs.find(x => x.id === d.revu); if (er) { upd("erreurs", er.id, { revues: [...new Set([...(er.revues || []), iso(now())])] }); } return; }
   if (d.maitrise) { toast("Bravo, une erreur de moins !"); return upd("erreurs", d.maitrise, { maitrise: true }); }
   if (d.unmaitrise) return upd("erreurs", d.unmaitrise, { maitrise: false });
-  if (d.train) { const v = S.vu.find(x => x.id === d.train); if (v) { train.point = v.titre + (v.details ? " (" + v.details + ")" : ""); train.mode = /fran/i.test(v.matiere) ? "dictee" : "quiz"; tab = "entrainement"; local.set("tab", tab); $("#view").innerHTML = ""; render(); const m = $("#tr-mat"); if (m) m.value = v.matiere; } return; }
-  if (d.mode) { train.mode = d.mode; $("#view").innerHTML = ""; return render(); }
+  if (d.train) { const v = S.vu.find(x => x.id === d.train); if (v) { train.point = v.titre + (v.details ? " (" + v.details + ")" : ""); tab = "entrainement"; local.set("tab", tab); $("#view").innerHTML = ""; render(); const m = $("#tr-mat"); if (m) m.value = v.matiere; } return; }
   if (d.point) { const p = pointsFaibles()[Number(d.point)]; if (p) { $("#tr-point").value = p.t; const m = $("#tr-mat"); if (m) m.value = p.m; } return; }
   if (t.id === "tr-go") return generer();
-  if (d.say) {
-    const r = train.ref; if (!r) return;
-    if (d.say === "next") { train.i = Math.min(train.i + 1, r.phrases.length - 1); }
-    const txt = d.say === "all" ? r.phrases.join(" ") : r.phrases[train.i];
-    const ok = sayFr(train.punct ? withPunct(txt) : txt);
-    const card = t.closest(".card");
-    card.querySelector('[data-say="cur"]').textContent = "Écouter la phrase " + (train.i + 1);
-    card.querySelector('[data-say="next"]').disabled = train.i >= r.phrases.length - 1;
-    if (!ok) $("#tts-note").hidden = false;
-    return;
-  }
-  if (d.show) { const p = $("#peek"); p.hidden = !p.hidden; p.textContent = train.ref.phrases[train.i]; return; }
-  if (t.id === "tr-corrige") return corriger();
-  if (t.id === "tr-save-err") { for (const f of train.fautes) await add("erreurs", { matiere: "Français", erreur: f.erreur, correction: f.correction, regle: "Dictée : " + train.ref.titre, date: iso(now()), revues: [], maitrise: false }); t.disabled = true; t.textContent = "Ajoutées au cahier d'erreurs"; return; }
-  if (t.id === "tr-explique") {
-    const out = $("#tr-expl"); t.disabled = true; out.textContent = "Claude regarde tes fautes…";
-    try {
-      await sample(`Tu es un professeur de français bienveillant de 6e. Voici le texte de la dictée : « ${train.ref.phrases.join(" ")} ». Voici ce que l'élève a écrit : « ${$("#tr-ecrit").value} ». Explique chaque faute en une phrase simple avec la règle à retenir, en tutoyant l'élève. Termine par un encouragement. Pas de titre, une liste courte.`, { cache: false, onText: ({ text }) => { out.textContent = text; } });
-    } catch (e) { out.textContent = "L'explication n'a pas marché, réessaie."; t.disabled = false; }
-    out.style.whiteSpace = "pre-wrap"; return;
-  }
   if (d.qa) {
     const [i, j] = d.qa.split(":").map(Number); train.quiz.questions[i].pick = j;
     $("#tr-out").innerHTML = quizHtml(); return;
@@ -820,7 +714,6 @@ document.addEventListener("change", e => {
   if (t.dataset.fait) upd("devoirs", t.dataset.fait, { fait: t.checked });
   if (t.id === "imp-file" && t.files[0]) runImport(t.files[0]);
   if (t.dataset.impi != null && imp?.items) imp.items[Number(t.dataset.impi)]._on = t.checked;
-  if (t.id === "tr-punct") train.punct = t.checked;
 });
 document.addEventListener("submit", async e => {
   const f = e.target.closest("form[data-form]"); if (!f) return;
