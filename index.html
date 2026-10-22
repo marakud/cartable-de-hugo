@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
-<title>Le cartable de Harry</title>
+<title>Mon cartable</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
 <style>
@@ -173,7 +173,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
 <div class="wrap">
   <header class="top">
     <div>
-      <h1>Le cartable de Harry</h1>
+      <h1 id="titre">Mon cartable</h1>
       <p class="date" id="today-label"></p>
     </div>
     <div class="row">
@@ -228,6 +228,8 @@ const local = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
 };
+const classe = () => S.cfg.classe || "6e";
+const prenom = () => S.cfg.prenom || "";
 const toast = msg => { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 2600); };
 
 async function add(col, data) {
@@ -290,6 +292,8 @@ function renderTabs() {
 }
 function render() {
   renderTabs();
+  const titre = prenom() ? "Le cartable de " + prenom() : "Mon cartable";
+  $("#titre").textContent = titre; document.title = titre;
   $("#today-label").textContent = longDate(now()).replace(/^./, c => c.toUpperCase()) + (weekType(now()) ? " · semaine " + weekType(now()) : "");
   const v = { jour: vJour, semaine: vSemaine, devoirs: vDevoirs, notes: vNotes, vu: vVu, erreurs: vErreurs, entrainement: vEntrainement }[tab];
   const keep = tab === "entrainement" && $("#view section[data-v='entrainement']");
@@ -601,26 +605,26 @@ async function generer() {
   const st = $("#tr-status"), btn = $("#tr-go"); btn.disabled = true; st.textContent = "Claude prépare ton exercice…";
   try {
       const mat = $("#tr-mat").value.trim();
-      const r = await sample.json(`Tu es professeur en classe de 6e en France${mat ? ", en " + mat : ""}. Crée un quiz de 6 questions à choix multiple sur : « ${point} », niveau 6e, du plus facile au plus difficile. Réponds uniquement en JSON : {"titre": "titre court", "questions": [{"question": "...", "choix": ["A", "B", "C"], "bonne": 0, "explication": "une phrase qui explique la bonne réponse"}]} — "bonne" est l'indice (à partir de 0) de la bonne réponse, 3 ou 4 choix par question.`, { signal: train.ctl.signal, cache: false });
+      const r = await sample.json(`Tu es professeur en classe de ${classe()} en France${mat ? ", en " + mat : ""}. Crée un quiz de 6 questions à choix multiple sur : « ${point} », niveau ${classe()}, du plus facile au plus difficile. Réponds uniquement en JSON : {"titre": "titre court", "questions": [{"question": "...", "choix": ["A", "B", "C"], "bonne": 0, "explication": "une phrase qui explique la bonne réponse"}]} — "bonne" est l'indice (à partir de 0) de la bonne réponse, 3 ou 4 choix par question.`, { signal: train.ctl.signal, cache: false });
       if (!Array.isArray(r?.questions)) throw { code: "invalid_json" };
       train.quiz = { titre: String(r.titre || "Mon quiz"), matiere: mat || "Révisions", questions: r.questions.filter(q => Array.isArray(q.choix)).map(q => ({ question: String(q.question), choix: q.choix.map(String), bonne: Number(q.bonne) || 0, explication: String(q.explication || ""), pick: null })) };
       $("#tr-out").innerHTML = quizHtml();
     st.textContent = "";
   } catch (e) {
-    st.textContent = e?.code === "cancelled" ? "" : e?.code === "not_granted" ? "Il faut autoriser Claude pour créer des exercices." : e?.code === "rate_limited" ? "Trop de demandes : réessaie dans un moment." : "Ça n'a pas marché, réessaie.";
+    st.textContent = e?.code === "cancelled" ? "" : e?.code === "not_granted" ? "Claude n'est pas activé pour ce compte." : e?.code === "rate_limited" ? (e.message || "Trop de demandes : réessaie dans un moment.") : "Ça n'a pas marché, réessaie.";
   } finally { btn.disabled = false; }
 }
 
 /* ---------- Import de captures Pronote ---------- */
 const IMPORTS = {
   edt: { titre: "Emploi du temps", aide: "Fais une capture de l'emploi du temps de la semaine dans Pronote.",
-    prompt: () => `Cette image est une capture d'écran de l'emploi du temps Pronote d'un élève de 6e. Liste chaque cours de la semaine. Ignore les cours barrés ou marqués « annulé » / « prof absent ». Si l'emploi du temps indique « semaine A » ou « semaine B » pour un cours, mets-le dans "semaine", sinon "". Réponds uniquement en JSON : {"items": [{"jour": 1, "debut": "08:00", "fin": "08:55", "matiere": "Mathématiques", "salle": "B12", "semaine": ""}]} où jour vaut 1 pour lundi jusqu'à 5 pour vendredi. Écris les matières avec des noms simples : Français, Mathématiques, Histoire-Géographie, Anglais, SVT, Physique-Chimie, Technologie, EPS, Arts plastiques, Éducation musicale, EMC, etc.`,
+    prompt: () => `Cette image est une capture d'écran de l'emploi du temps Pronote d'un élève de ${classe()}. Liste chaque cours de la semaine. Ignore les cours barrés ou marqués « annulé » / « prof absent ». Si l'emploi du temps indique « semaine A » ou « semaine B » pour un cours, mets-le dans "semaine", sinon "". Réponds uniquement en JSON : {"items": [{"jour": 1, "debut": "08:00", "fin": "08:55", "matiere": "Mathématiques", "salle": "B12", "semaine": ""}]} où jour vaut 1 pour lundi jusqu'à 5 pour vendredi. Écris les matières avec des noms simples : Français, Mathématiques, Histoire-Géographie, Anglais, SVT, Physique-Chimie, Technologie, EPS, Arts plastiques, Éducation musicale, EMC, etc.`,
     line: x => `${chip(x.matiere)} <span class="small">${esc(JOURS[x.jour] || "?")} ${esc(x.debut)}–${esc(x.fin)}${x.semaine ? " · sem. " + esc(x.semaine) : ""}</span>` },
   devoirs: { titre: "Devoirs", aide: "Fais une capture de « Travail à faire » (ou du cahier de textes) dans Pronote.",
-    prompt: () => `Cette image est une capture d'écran Pronote d'un élève de 6e : la liste du travail à faire. Aujourd'hui nous sommes le ${longDate(now())} ${now().getFullYear()} (${iso(now())}). Liste chaque devoir. Convertis chaque date « pour le » en AAAA-MM-JJ. Mets "type": "controle" si c'est une évaluation, un contrôle ou une interrogation, sinon "devoir". Résume le texte en une phrase claire et courte. Réponds uniquement en JSON : {"items": [{"matiere": "Français", "pour": "2026-10-23", "texte": "Apprendre la leçon sur le passé simple", "type": "devoir", "fait": false}]} ; mets "fait": true seulement si Pronote montre le devoir comme fait.`,
+    prompt: () => `Cette image est une capture d'écran Pronote d'un élève de ${classe()} : la liste du travail à faire. Aujourd'hui nous sommes le ${longDate(now())} ${now().getFullYear()} (${iso(now())}). Liste chaque devoir. Convertis chaque date « pour le » en AAAA-MM-JJ. Mets "type": "controle" si c'est une évaluation, un contrôle ou une interrogation, sinon "devoir". Résume le texte en une phrase claire et courte. Réponds uniquement en JSON : {"items": [{"matiere": "Français", "pour": "2026-10-23", "texte": "Apprendre la leçon sur le passé simple", "type": "devoir", "fait": false}]} ; mets "fait": true seulement si Pronote montre le devoir comme fait.`,
     line: x => `${chip(x.matiere)} <span class="small">pour ${esc(shortDate(x.pour))} : ${esc(x.texte)}${x.type === "controle" ? ` <span class="pill ctrl">contrôle</span>` : ""}</span>` },
   vu: { titre: "Vu en classe", aide: "Fais une capture du « Contenu des cours » dans Pronote.",
-    prompt: () => `Cette image est une capture d'écran Pronote d'un élève de 6e : le contenu des cours (ce qui a été fait en classe). Aujourd'hui nous sommes le ${iso(now())}. Pour chaque séance, donne la matière, la date (AAAA-MM-JJ), un titre court de la leçon et les détails utiles en une phrase. Réponds uniquement en JSON : {"items": [{"matiere": "Mathématiques", "date": "2026-10-20", "titre": "Les fractions égales", "details": "simplifier une fraction"}]}`,
+    prompt: () => `Cette image est une capture d'écran Pronote d'un élève de ${classe()} : le contenu des cours (ce qui a été fait en classe). Aujourd'hui nous sommes le ${iso(now())}. Pour chaque séance, donne la matière, la date (AAAA-MM-JJ), un titre court de la leçon et les détails utiles en une phrase. Réponds uniquement en JSON : {"items": [{"matiere": "Mathématiques", "date": "2026-10-20", "titre": "Les fractions égales", "details": "simplifier une fraction"}]}`,
     line: x => `${chip(x.matiere)} <span class="small">${esc(shortDate(x.date))} : ${esc(x.titre)}</span>` }
 };
 let imp = null;
@@ -646,7 +650,7 @@ async function runImport(file) {
       + (replace ? `<label class="row small"><input type="checkbox" id="imp-replace" checked> Remplacer mon emploi du temps actuel</label>` : "")
       + `<div class="row"><button class="btn" id="imp-save" type="button">Enregistrer</button></div>`;
   } catch (e) {
-    st.textContent = e?.code === "not_granted" ? "Il faut autoriser Claude à lire l'image." : e?.code === "image_rejected" ? "Cette image ne passe pas : essaie une capture en PNG ou JPG." : "La lecture n'a pas marché. Réessaie, ou envoie la capture à Claude dans la discussion.";
+    st.textContent = e?.code === "not_granted" ? "Claude n'est pas activé pour ce compte." : e?.code === "rate_limited" ? (e.message || "Trop de demandes : réessaie dans un moment.") : e?.code === "image_rejected" ? "Cette image ne passe pas : essaie une capture en PNG ou JPG." : "La lecture n'a pas marché. Réessaie dans un moment.";
   }
 }
 async function saveImport() {
@@ -665,6 +669,10 @@ async function saveImport() {
 function openSettings() {
   $("#dlg-in").innerHTML = `<div class="row between"><h2>Réglages</h2><button class="iconbtn" data-close type="button">Fermer</button></div>
     <form data-form="cfg" class="stack">
+      <div class="row">
+        <label class="f">Prénom<input name="prenom" maxlength="40" value="${esc(prenom())}"></label>
+        <label class="f">Classe<select name="classe">${["6e","5e","4e","3e"].map(c => `<option${c === classe() ? " selected" : ""}>${c}</option>`).join("")}</select></label>
+      </div>
       <div class="row">
         <label class="f">Je rentre à la maison vers<input id="cfg-retour" name="retour" type="time" value="${esc(S.cfg.retour || "17:00")}"></label>
         <label class="f">Je me couche vers<input id="cfg-coucher" name="coucher" type="time" value="${esc(S.cfg.coucher || "21:00")}"></label>
@@ -813,29 +821,87 @@ function makeSample(sb) {
   return sample;
 }
 
-function loginView(sb, appEmail) {
+function loginView(sb, mode = "in") {
+  $("#btn-settings").hidden = true;
+  $("#tabs").innerHTML = "";
+  const signup = mode === "up";
+  $("#view").innerHTML = `<section class="view"><div class="card seyes">
+    <h2>${signup ? "Créer un compte" : "Bonjour !"}</h2>
+    <p>${signup ? "Pour le parent : créez le cartable de votre enfant. Un compte = un enfant." : "Connecte-toi avec l'e-mail et le mot de passe de ton compte. Tu n'auras à le faire qu'une fois sur cet appareil."}</p>
+    <form id="login" class="stack">
+      ${signup ? `<div class="row">
+        <label class="f">Prénom de l'enfant<input id="su-prenom" required maxlength="40" autocomplete="off"></label>
+        <label class="f">Classe<select id="su-classe">${["6e","5e","4e","3e"].map(c => `<option>${c}</option>`).join("")}</select></label>
+      </div>` : ""}
+      <div class="row">
+        <label class="f" style="flex:2 1 220px">${signup ? "E-mail du parent" : "E-mail"}<input id="login-email" type="email" required autocomplete="email"></label>
+        <label class="f">Mot de passe<input id="login-pass" type="password" required minlength="${signup ? 8 : 1}" autocomplete="${signup ? "new-password" : "current-password"}"></label>
+      </div>
+      ${signup ? `<label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" required style="margin-top:4px;flex:none"><span>Je suis le parent (ou le responsable légal) de cet enfant.</span></label>` : ""}
+      <div class="row"><button class="btn" type="submit">${signup ? "Créer le compte" : "Ouvrir mon cartable"}</button></div>
+    </form>
+    <p class="status" id="login-status"></p>
+    <div class="row" style="margin-top:8px">
+      <button class="iconbtn" type="button" id="login-switch">${signup ? "J'ai déjà un compte" : "Créer un compte (parents)"}</button>
+      ${signup ? "" : `<button class="iconbtn" type="button" id="login-forgot">Mot de passe oublié</button>`}
+    </div>
+  </div></section>`;
+  const st = $("#login-status");
+  const explain = error => {
+    const m = String(error?.message || "");
+    return /invalid login credentials/i.test(m) ? "E-mail ou mot de passe incorrect. Réessaie, ou demande à ton parent."
+      : /email not confirmed/i.test(m) ? "Le compte n'est pas encore confirmé : ouvrez l'e-mail reçu et cliquez sur le lien."
+      : /already registered|already been registered/i.test(m) ? "Un compte existe déjà avec cet e-mail. Cliquez sur « J'ai déjà un compte »."
+      : /signups? not allowed|signup is disabled/i.test(m) ? "La création de comptes est fermée sur ce site."
+      : /password/i.test(m) && /least|short|weak/i.test(m) ? "Mot de passe trop court ou trop simple (8 caractères au moins)."
+      : error?.status === 429 ? "Trop d'essais : attends quelques minutes."
+      : /invalid api key|failed to fetch/i.test(m) ? "Le site n'arrive pas à joindre Supabase : vérifiez SUPABASE_URL et SUPABASE_ANON_KEY sur Vercel."
+      : "Ça n'a pas marché. (Message de Supabase : " + m + ")";
+  };
+  $("#login-switch").onclick = () => loginView(sb, signup ? "in" : "up");
+  if (!signup) $("#login-forgot").onclick = async () => {
+    const email = $("#login-email").value.trim();
+    if (!email) { st.textContent = "Écris d'abord l'e-mail du compte, puis clique à nouveau."; return; }
+    st.textContent = "Envoi…";
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin });
+    st.textContent = error ? explain(error) : "Si ce compte existe, un e-mail est parti pour choisir un nouveau mot de passe.";
+  };
+  $("#login").addEventListener("submit", async e => {
+    e.preventDefault(); e.stopPropagation();
+    const email = $("#login-email").value.trim(), password = $("#login-pass").value;
+    if (!signup) {
+      st.textContent = "Ouverture…";
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) st.textContent = explain(error);
+      return;
+    }
+    st.textContent = "Création du compte…";
+    const { data, error } = await sb.auth.signUp({ email, password, options: {
+      emailRedirectTo: location.origin,
+      data: { prenom: $("#su-prenom").value.trim(), classe: $("#su-classe").value }
+    } });
+    if (error) { st.textContent = explain(error); return; }
+    // Sans session, Supabase attend la confirmation par e-mail (ou l'e-mail existe déjà et Supabase ne le dit pas).
+    if (!data.session) st.textContent = "Presque fini : ouvrez l'e-mail envoyé par le site et cliquez sur le lien pour activer le compte.";
+  });
+}
+
+function newPasswordView(sb) {
   $("#btn-settings").hidden = true;
   $("#tabs").innerHTML = "";
   $("#view").innerHTML = `<section class="view"><div class="card seyes">
-    <h2>Bonjour Harry</h2>
-    <p>Tape ton code secret. Tu n'auras à le faire qu'une fois sur cet appareil.</p>
-    <form id="login" class="row">
-      <label class="f" style="flex:3 1 240px">Code secret<input id="login-code" type="password" required autocomplete="current-password"></label>
-      <button class="btn" type="submit">Ouvrir mon cartable</button>
+    <h2>Nouveau mot de passe</h2>
+    <form id="newpass" class="row">
+      <label class="f" style="flex:3 1 240px">Mot de passe<input id="np-pass" type="password" required minlength="8" autocomplete="new-password"></label>
+      <button class="btn" type="submit">Enregistrer</button>
     </form>
-    <p class="status" id="login-status"></p>
+    <p class="status" id="np-status"></p>
   </div></section>`;
-  $("#login").addEventListener("submit", async e => {
+  $("#newpass").addEventListener("submit", async e => {
     e.preventDefault(); e.stopPropagation();
-    const st = $("#login-status"); st.textContent = "Ouverture…";
-    if (!appEmail) { st.textContent = "Il manque APP_EMAIL sur Vercel (voir LISEZ-MOI)."; return; }
-    const { error } = await sb.auth.signInWithPassword({ email: appEmail, password: $("#login-code").value });
-    if (!error) return;
-    const m = String(error.message || "");
-    st.textContent = /invalid login credentials/i.test(m) ? "Ce n'est pas le bon code. Réessaie, ou demande-le à ton parent."
-      : error.status === 429 ? "Trop d'essais : attends quelques minutes."
-      : /invalid api key|failed to fetch/i.test(m) ? "Le site n'arrive pas à joindre Supabase : vérifie SUPABASE_URL et SUPABASE_ANON_KEY sur Vercel."
-      : "Ça n'a pas marché. (Message de Supabase : " + m + ")";
+    const { error } = await sb.auth.updateUser({ password: $("#np-pass").value });
+    if (error) { $("#np-status").textContent = "Ça n'a pas marché. (Message de Supabase : " + error.message + ")"; return; }
+    location.replace(location.origin);
   });
 }
 
@@ -844,10 +910,18 @@ function loginView(sb, appEmail) {
   let cfg;
   try { cfg = await (await fetch("/api/config")).json(); } catch {}
   if (!cfg?.supabaseUrl || !window.supabase) { $("#sync").textContent = "Configuration manquante (voir LISEZ-MOI)"; render(); return; }
+  // Lien « mot de passe oublié » : Supabase efface l'adresse en lisant le jeton, donc on regarde avant.
+  let recovering = /type=recovery/.test(location.hash);
   const sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
   const { data: { session } } = await sb.auth.getSession();
-  sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_IN" && !db) location.reload(); if (ev === "SIGNED_OUT") location.reload(); });
-  if (!session) { $("#sync").textContent = ""; loginView(sb, cfg.appEmail); return; }
+  sb.auth.onAuthStateChange((ev) => {
+    if (ev === "PASSWORD_RECOVERY") { recovering = true; $("#sync").textContent = ""; return newPasswordView(sb); }
+    if (ev === "SIGNED_IN" && !db && !recovering) location.reload();
+    if (ev === "SIGNED_OUT") location.reload();
+  });
+  if (recovering && session) { $("#sync").textContent = ""; newPasswordView(sb); return; }
+  recovering = false;
+  if (!session) { $("#sync").textContent = ""; loginView(sb); return; }
   const out = document.createElement("button");
   out.className = "iconbtn"; out.type = "button"; out.textContent = "Se déconnecter";
   out.onclick = () => sb.auth.signOut();
@@ -860,7 +934,13 @@ function loginView(sb, appEmail) {
     if (++loaded >= COLS.length) $("#sync").textContent = "";
     schedule();
   }, () => { $("#sync").textContent = "Connexion perdue, recharge la page"; });
-  db.doc("config/reglages").onSnapshot(snap => { S.cfg = snap.exists ? { ...snap.data() } : {}; schedule(); }, () => {});
+  const meta = session.user.user_metadata || {};
+  db.doc("config/reglages").onSnapshot(snap => {
+    S.cfg = snap.exists ? { ...snap.data() } : {};
+    // Premier passage après la création du compte : on reprend le prénom et la classe donnés par le parent.
+    if (!snap.exists && meta.prenom) db.doc("config/reglages").set({ prenom: meta.prenom, classe: meta.classe || "6e" }).catch(() => {});
+    schedule();
+  }, () => {});
   render();
 })();
 setInterval(() => { if (tab === "jour" && !document.querySelector("dialog[open]")) render(); }, 5 * 60 * 1000);
