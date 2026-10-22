@@ -18,7 +18,9 @@ Ce guide est pour **le parent** de Harry. Il faut environ 30 minutes. Tout est g
 
 1. Créez un compte sur [supabase.com](https://supabase.com), puis un nouveau projet (région : Europe, par exemple Paris ou Francfort).
 2. Dans le menu **SQL Editor**, collez tout le contenu de `supabase/schema.sql` et cliquez sur **Run**.
-3. Dans **Project Settings → API**, notez l'**URL du projet** et la **clé `anon` public**.
+3. Notez l'**URL du projet** et la **clé publique**. Le plus simple : cliquez sur le bouton **Connect** en haut de la page du projet. Sinon :
+    - l'URL est dans **Project Settings → Data API** (elle ressemble à `https://xxxx.supabase.co`) ;
+    - la clé est dans **Project Settings → API Keys** : prenez la **Publishable key** (`sb_publishable_…`), ou la clé **anon** dans l'onglet **Legacy API Keys**. Ne prenez jamais la clé **secret** ou **service_role**.
 4. Dans **Authentication → Sign In / Providers**, vérifiez que **Email** est activé.
 
 ## 2. Mettre le code sur GitHub
@@ -44,7 +46,7 @@ Pour l'ordre de grandeur : une dictée ou un quiz coûte environ 2 à 5 centimes
 | Nom | Valeur |
 | --- | --- |
 | `SUPABASE_URL` | L'URL du projet Supabase (étape 1) |
-| `SUPABASE_ANON_KEY` | La clé `anon` public (étape 1) |
+| `SUPABASE_ANON_KEY` | La clé publique (étape 1) |
 | `ANTHROPIC_API_KEY` | La clé Claude (étape 3) |
 | `ALLOWED_EMAILS` | Les e-mails autorisés à utiliser Claude, séparés par des virgules. Par exemple : `harry@exemple.fr,parent@exemple.fr` |
 
