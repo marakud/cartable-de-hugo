@@ -111,6 +111,16 @@ details[open] > summary::before { content: "– "; }
 .moment .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 .progress { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
 .progress > i { display: block; height: 100%; background: var(--good); border-radius: 999px; transition: width .3s; }
+.routine-deck { overflow: hidden; border-radius: 14px; touch-action: pan-y; }
+.task-card { display: grid; gap: 14px; min-height: 150px; padding: 18px; border: 1.5px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--accent) 5%, var(--paper)); user-select: none; transition: transform .16s ease, opacity .16s ease; }
+.task-card.swipe-right { transform: translateX(120%) rotate(5deg); opacity: .35; }
+.task-card.swipe-left { transform: translateX(-120%) rotate(-5deg); opacity: .35; }
+.task-card .task-copy { font-size: 1.08rem; line-height: 1.45; font-weight: 700; }
+.task-card .task-count { color: var(--muted); font-size: .85rem; font-weight: 700; }
+.task-card .swipe-hint { color: var(--muted); font-size: .82rem; text-align: center; }
+.task-actions { display: flex; gap: 8px; }
+.task-actions button { flex: 1; }
+@media (max-width: 480px) { .task-card { min-height: 165px; padding: 16px; } }
 
 /* Emploi du temps */
 .edt { overflow-x: auto; }
@@ -303,17 +313,45 @@ function render() {
 }
 
 /* ---------- Aujourd'hui ---------- */
+const routineCursor = {};
 function routineState() { return local.get("routine-" + iso(now()), {}); }
 function checkRow(id, html, st) {
   const done = !!st[id];
   return `<label class="check ${done ? "done" : ""}"><input type="checkbox" data-routine="${id}" ${done ? "checked" : ""}><span class="txt">${html}</span></label>`;
 }
+function finishRoutine(id) {
+  const st = routineState();
+  st[id] = true;
+  local.set("routine-" + iso(now()), st);
+  render();
+  if (Object.values(st).filter(Boolean).length >= 4) toast("Super, continue comme ça !");
+}
+function skipRoutine(key, nextId) {
+  routineCursor[key] = nextId;
+  render();
+}
 function momentCard(key, title, when, items, active) {
-  const st = routineState(), done = items.filter(i => st[i.id]).length;
+  const st = routineState(), doneItems = items.filter(i => st[i.id]), pending = items.filter(i => !st[i.id]);
+  const done = doneItems.length, total = items.length;
+  let index = pending.findIndex(i => i.id === routineCursor[key]);
+  if (index < 0) index = 0;
+  const current = pending[index], next = pending.length ? pending[(index + 1) % pending.length] : null;
+  const task = current ? `<div class="routine-deck" data-routine-card="${key}" data-task-id="${current.id}" data-task-next="${next.id}">
+      <div class="task-card" role="group" aria-label="Tâche ${done + 1} sur ${total}">
+        <div class="task-count">Tâche ${done + 1} sur ${total}</div>
+        <div class="task-copy">${current.html}</div>
+        <p class="swipe-hint">Glisse à droite pour valider · à gauche pour passer</p>
+        <div class="task-actions">
+          <button class="btn ghost" data-routine-skip="${key}" data-next="${next.id}" type="button">Passer</button>
+          <button class="btn good" data-routine-done="${current.id}" type="button">✓ C'est fait</button>
+        </div>
+      </div>
+    </div>` : `<div class="empty"><div class="doodle">✓</div><p>Toutes les tâches sont validées !</p></div>`;
   return `<div class="card moment ${active ? "active" : ""} ${key === "coucher" ? "seyes" : ""}">
     <div class="head"><h2>${title}</h2>${active ? `<span class="pill now">C'est le moment</span>` : `<span class="muted small">${when}</span>`}</div>
-    <div class="progress" aria-label="${done} sur ${items.length}"><i style="width:${items.length ? done / items.length * 100 : 0}%"></i></div>
-    <div>${items.map(i => checkRow(i.id, i.html, st)).join("")}</div>
+    <div class="progress" aria-label="${done} sur ${total}"><i style="width:${total ? done / total * 100 : 0}%"></i></div>
+    ${task}
+    ${done ? `<details><summary>Tâches validées (${done})</summary><div style="margin-top:8px">${doneItems.map(i => checkRow(i.id, i.html, st)).join("")}</div></details>` : ""}
   </div>`;
 }
 function vJour() {
@@ -683,6 +721,27 @@ function openSettings() {
   $("#dlg").showModal();
 }
 
+/* Swipe horizontal : droite = valider, gauche = passer. Le défilement vertical reste natif. */
+let routineTouch = null;
+document.addEventListener("touchstart", e => {
+  const deck = e.target.closest(".routine-deck");
+  if (!deck || e.target.closest("button, input")) { routineTouch = null; return; }
+  const p = e.changedTouches[0];
+  routineTouch = { x: p.clientX, y: p.clientY, deck };
+}, { passive: true });
+document.addEventListener("touchend", e => {
+  if (!routineTouch) return;
+  const p = e.changedTouches[0], dx = p.clientX - routineTouch.x, dy = p.clientY - routineTouch.y;
+  const deck = routineTouch.deck;
+  routineTouch = null;
+  if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.25) return;
+  const card = deck.querySelector(".task-card");
+  if (!card) return;
+  card.classList.add(dx > 0 ? "swipe-right" : "swipe-left");
+  setTimeout(() => dx > 0 ? finishRoutine(deck.dataset.taskId) : skipRoutine(deck.dataset.routineCard, deck.dataset.taskNext), 150);
+}, { passive: true });
+document.addEventListener("touchcancel", () => { routineTouch = null; }, { passive: true });
+
 /* ---------- Événements ---------- */
 document.addEventListener("click", async e => {
   const t = e.target.closest("button, [data-tab]"); if (!t) return;
@@ -692,6 +751,8 @@ document.addEventListener("click", async e => {
   if (t.id === "btn-settings") return openSettings();
   if ("close" in d) return $("#dlg").close();
   if (d.import) return openImport(d.import);
+  if (d.routineDone) return finishRoutine(d.routineDone);
+  if (d.routineSkip) return skipRoutine(d.routineSkip, d.next);
   if (t.id === "imp-save") return saveImport();
   if (d.del) {
     if (t.dataset.armed !== "1") { t.dataset.armed = "1"; const old = t.textContent; t.textContent = "sûr ?"; setTimeout(() => { if (t.isConnected) { t.dataset.armed = ""; t.textContent = old; } }, 2500); return; }
