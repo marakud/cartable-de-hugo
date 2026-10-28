@@ -338,7 +338,7 @@ function momentCard(key, title, when, items, active) {
   const current = pending[index], next = pending.length ? pending[(index + 1) % pending.length] : null;
   const task = current ? `<div class="routine-deck" data-routine-card="${key}" data-task-id="${current.id}" data-task-next="${next.id}">
       <div class="task-card" role="group" aria-label="Tâche ${done + 1} sur ${total}">
-        <div class="task-count">Tâche ${done + 1} sur ${total - done}</div>
+        <div class="task-count">Tâche ${done + 1} sur ${total}</div>
         <div class="task-copy">${current.html}</div>
         <p class="swipe-hint">Glisse à droite pour valider · à gauche pour passer</p>
         <div class="task-actions">
