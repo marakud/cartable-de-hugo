@@ -8,31 +8,31 @@
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>Mon cartable</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Nunito+Sans:opsz,wght@6..12,400..800&display=swap">
 <style>
 /* Layout: une colonne calme (max 760px), onglets en haut, cartes seulement pour ce qui se coche ou se révise. Grille Seyès discrète en clin d'œil au cahier. */
 :root {
-  --bg: #f6f7fb;
-  --paper: #ffffff;
-  --ink: #1c2140;
-  --muted: #646b8c;
-  --line: #e3e6f0;
-  --seyes: #dfe6ff;
-  --accent: #2448d8;
+  --bg: #f5f3ee;
+  --paper: #fffdf9;
+  --ink: #202642;
+  --muted: #68708a;
+  --line: #e6e4de;
+  --seyes: #f1ece4;
+  --accent: #344fce;
   --accent-ink: #ffffff;
-  --marker: #ffe066;
-  --good: #1f9d63;
-  --good-soft: #e3f6ec;
+  --marker: #f4ce71;
+  --good: #2c9c73;
+  --good-soft: #e5f5ed;
   --bad: #d6453d;
   --bad-soft: #fde9e7;
   --warn: #c77d00;
-  --shadow: 0 1px 2px rgba(28,33,64,.06), 0 4px 14px rgba(28,33,64,.05);
+  --shadow: 0 1px 2px rgba(32,38,66,.04), 0 6px 18px rgba(32,38,66,.06);
   --f-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
-  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Nunito Sans", "Segoe UI", system-ui, sans-serif;
   --r: 14px;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #12152a; --paper: #1b1f3a; --ink: #eef0fb; --muted: #a2a8c8; --line: #2c3156; --seyes: #262c55;
+  --bg: #12152a; --paper: #1b1f3a; --ink: #eef0fb; --muted: #a2a8c8; --line: #2c3156; --seyes: #282e46;
   --accent: #7d97ff; --accent-ink: #0f1430; --marker: #f2cf3a; --good: #4fd193; --good-soft: #173a2c;
   --bad: #ff7d74; --bad-soft: #3d1e22; --warn: #f3b443; --shadow: 0 1px 2px rgba(0,0,0,.3); color-scheme: dark; } }
 :root[data-theme="dark"] {
@@ -62,11 +62,27 @@ nav.tabs::-webkit-scrollbar { display: none; }
 nav.tabs button { flex: none; border: 0; background: transparent; color: var(--muted); font: 700 .95rem var(--f-display); padding: 8px 14px; border-radius: 999px; cursor: pointer; }
 nav.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); }
 nav.tabs .count { display: inline-block; min-width: 1.4em; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--marker); color: #1c2140; font-size: .75rem; }
+.mobile-tabs { display: none; }
+.mobile-tabs button { border: 0; background: transparent; color: var(--muted); font: inherit; cursor: pointer; }
+.mobile-tabs button[aria-current="page"] { color: var(--accent); font-weight: 700; }
+.mobile-tabs .mobile-tab { flex: 1; min-width: 0; min-height: 48px; display: grid; place-items: center; align-content: center; gap: 2px; border-radius: 13px; }
+.mobile-tabs .mobile-icon { font-size: 1.1rem; line-height: 1.1; }
+.mobile-tabs .mobile-label { font-size: .68rem; white-space: nowrap; }
+.mobile-more { position: relative; flex: 1; min-width: 0; display: grid; place-items: center; }
+.mobile-more > button { min-height: 48px; width: 100%; display: grid; place-items: center; align-content: center; gap: 2px; border-radius: 13px; }
+.mobile-more-menu { position: absolute; right: 0; bottom: calc(100% + 10px); width: min(240px, calc(100vw - 24px)); padding: 7px; display: grid; gap: 3px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); box-shadow: 0 12px 36px rgba(20,25,50,.2); }
+.mobile-more-menu button { width: 100%; min-height: 44px; padding: 8px 11px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-radius: 10px; text-align: left; }
+.mobile-more-menu button[aria-current="page"] { background: color-mix(in srgb, var(--accent) 10%, var(--paper)); color: var(--accent); }
+@media (max-width: 600px) {
+  .wrap { padding-bottom: calc(108px + env(safe-area-inset-bottom, 0px)); }
+  nav.tabs { display: none; }
+  .mobile-tabs { display: flex; position: fixed; inset-inline: 0; bottom: 0; z-index: 15; align-items: stretch; gap: 2px; padding: 7px max(8px, env(safe-area-inset-left, 0px)) calc(7px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); background: color-mix(in srgb, var(--paper) 94%, transparent); backdrop-filter: blur(14px); }
+}
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
 
 section.view { display: grid; gap: 18px; }
 .card { background: var(--paper); border-radius: var(--r); box-shadow: var(--shadow); padding: 16px; display: grid; gap: 12px; min-width: 0; }
-.seyes { background-color: var(--paper); background-image: linear-gradient(var(--seyes) 1px, transparent 1px); background-size: 100% 26px; }
+.seyes { background-color: var(--paper); background-image: linear-gradient(color-mix(in srgb, var(--seyes) 48%, transparent) 1px, transparent 1px); background-size: 100% 26px; }
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .between { justify-content: space-between; }
 .stack { display: grid; gap: 8px; }
@@ -192,8 +208,9 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     </div>
   </header>
 
-  <nav class="tabs" role="tablist" id="tabs"></nav>
+  <nav class="tabs" role="tablist" id="tabs" aria-label="Rubriques du cartable"></nav>
   <main id="view"></main>
+  <nav class="mobile-tabs" id="mobile-tabs" aria-label="Navigation principale" hidden></nav>
 </div>
 
 <dialog id="dlg"><div class="in" id="dlg-in"></div></dialog>
@@ -297,8 +314,21 @@ function renderTabs() {
     devoirs: S.devoirs.filter(d => !d.fait && d.pour >= iso(now())).length,
     erreurs: erreursARevoir().length
   };
+  const badge = k => counts[k] ? `<span class="count num">${counts[k]}</span>` : "";
   $("#tabs").innerHTML = TABS.map(([k, l]) =>
-    `<button role="tab" type="button" data-tab="${k}" aria-selected="${tab === k}">${l}${counts[k] ? `<span class="count num">${counts[k]}</span>` : ""}</button>`).join("");
+    `<button role="tab" type="button" data-tab="${k}" aria-selected="${tab === k}">${l}${badge(k)}</button>`).join("");
+  const primary = [
+    ["jour", "Accueil", "⌂"], ["semaine", "Agenda", "▦"], ["devoirs", "Devoirs", "✓"], ["entrainement", "Réviser", "✦"]
+  ];
+  const secondary = TABS.filter(([k]) => !primary.some(([p]) => p === k));
+  const inMore = secondary.some(([k]) => k === tab);
+  $("#mobile-tabs").hidden = false;
+  $("#mobile-tabs").innerHTML =
+    primary.map(([k, label, icon]) => `<button class="mobile-tab" type="button" data-tab="${k}" aria-current="${tab === k ? "page" : "false"}"><span class="mobile-icon" aria-hidden="true">${icon}</span><span class="mobile-label">${label}</span>${badge(k)}</button>`).join("")
+    + `<div class="mobile-more">
+      <div class="mobile-more-menu" id="mobile-more-menu" role="group" aria-label="Autres rubriques" hidden>${secondary.map(([k, label]) => `<button type="button" data-tab="${k}" aria-current="${tab === k ? "page" : "false"}"><span>${label}</span>${badge(k)}</button>`).join("")}</div>
+      <button id="mobile-more-toggle" type="button" aria-expanded="false" aria-controls="mobile-more-menu" aria-current="${inMore ? "page" : "false"}"><span class="mobile-icon" aria-hidden="true">⋯</span><span class="mobile-label">Plus</span></button>
+    </div>`;
 }
 function render() {
   renderTabs();
@@ -744,8 +774,22 @@ document.addEventListener("touchcancel", () => { routineTouch = null; }, { passi
 
 /* ---------- Événements ---------- */
 document.addEventListener("click", async e => {
-  const t = e.target.closest("button, [data-tab]"); if (!t) return;
+  const t = e.target.closest("button, [data-tab]");
+  if (!t) {
+    if (!e.target.closest("#mobile-tabs")) {
+      const menu = $("#mobile-more-menu");
+      if (menu) menu.hidden = true;
+      $("#mobile-more-toggle")?.setAttribute("aria-expanded", "false");
+    }
+    return;
+  }
   const d = t.dataset;
+  if (t.id === "mobile-more-toggle") {
+    const menu = $("#mobile-more-menu");
+    menu.hidden = !menu.hidden;
+    t.setAttribute("aria-expanded", String(!menu.hidden));
+    return;
+  }
   if (d.tab) { tab = d.tab; local.set("tab", tab); render(); window.scrollTo({ top: 0 }); return; }
   if (d.go) { tab = d.go; local.set("tab", tab); render(); return; }
   if (t.id === "btn-settings") return openSettings();
@@ -885,6 +929,8 @@ function makeSample(sb) {
 function loginView(sb, mode = "in") {
   $("#btn-settings").hidden = true;
   $("#tabs").innerHTML = "";
+  $("#mobile-tabs").innerHTML = "";
+  $("#mobile-tabs").hidden = true;
   const signup = mode === "up";
   $("#view").innerHTML = `<section class="view"><div class="card seyes">
     <h2>${signup ? "Créer un compte" : "Bonjour !"}</h2>
