@@ -121,6 +121,12 @@ details[open] > summary::before { content: "– "; }
 .check.done .txt { color: var(--muted); text-decoration: line-through; }
 .check .txt { min-width: 0; }
 
+.todo-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.todo-row:last-child { border-bottom: 0; }
+.todo-row .txt { min-width: 0; overflow-wrap: anywhere; }
+.todo-row .due { display: block; margin-top: 2px; }
+@media (max-width: 420px) { .todo-row { grid-template-columns: 28px minmax(0, 1fr); } .todo-row .link { grid-column: 2; justify-self: start; } }
+
 /* Moments */
 .moment { border-left: 0; position: relative; }
 .moment.active { outline: 2.5px solid var(--marker); }
@@ -248,8 +254,8 @@ const colorOf = m => {
 const chip = m => `<span class="chip" style="--c:${colorOf(m)}">${esc(m || "Autre")}</span>`;
 
 /* Données */
-const S = { edt: [], devoirs: [], notes: [], vu: [], erreurs: [], cfg: {} };
-const COLS = ["edt", "devoirs", "notes", "vu", "erreurs"];
+const S = { edt: [], devoirs: [], todo: [], notes: [], vu: [], erreurs: [], cfg: {} };
+const COLS = ["edt", "devoirs", "todo", "notes", "vu", "erreurs"];
 let db = null, sample = null, canSendImages = false, ready = false;
 const local = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
@@ -306,12 +312,13 @@ function moyennes() {
 /* Onglets */
 const TABS = [
   ["jour", "Aujourd'hui"], ["semaine", "Emploi du temps"], ["devoirs", "Devoirs"], ["notes", "Notes"],
-  ["vu", "Vu en classe"], ["erreurs", "Cahier d'erreurs"], ["entrainement", "S'entraîner"]
+  ["todo", "Ma liste"], ["vu", "Vu en classe"], ["erreurs", "Cahier d'erreurs"], ["entrainement", "S'entraîner"]
 ];
 let tab = TABS.some(t => t[0] === location.hash.slice(1)) ? location.hash.slice(1) : local.get("tab", "jour");
 function renderTabs() {
   const counts = {
     devoirs: S.devoirs.filter(d => !d.fait && d.pour >= iso(now())).length,
+    todo: S.todo.filter(t => !t.fait).length,
     erreurs: erreursARevoir().length
   };
   const badge = k => counts[k] ? `<span class="count num">${counts[k]}</span>` : "";
@@ -335,7 +342,7 @@ function render() {
   const titre = prenom() ? "Le cartable de " + prenom() : "Mon cartable";
   $("#titre").textContent = titre; document.title = titre;
   $("#today-label").textContent = longDate(now()).replace(/^./, c => c.toUpperCase()) + (weekType(now()) ? " · semaine " + weekType(now()) : "");
-  const v = { jour: vJour, semaine: vSemaine, devoirs: vDevoirs, notes: vNotes, vu: vVu, erreurs: vErreurs, entrainement: vEntrainement }[tab];
+  const v = { jour: vJour, semaine: vSemaine, devoirs: vDevoirs, todo: vTodo, notes: vNotes, vu: vVu, erreurs: vErreurs, entrainement: vEntrainement }[tab];
   const keep = tab === "entrainement" && $("#view section[data-v='entrainement']");
   if (!keep) $("#view").innerHTML = `<section class="view" data-v="${tab}">${v()}</section>`;
   else refreshTrainingPicker();
@@ -497,6 +504,34 @@ function vDevoirs() {
       <button class="btn" type="submit">Ajouter</button>
     </form></details></div>
   ${old.length ? `<div class="card"><details><summary>Devoirs terminés (${old.length})</summary><div style="margin-top:8px">${old.slice(0, 40).map(item).join("")}</div></details></div>` : ""}
+  ${datalist()}`;
+}
+
+/* ---------- Ma liste ---------- */
+function vTodo() {
+  const pending = S.todo.filter(t => !t.fait).sort((a, b) => String(a.pour || "9999-99-99").localeCompare(String(b.pour || "9999-99-99")) || String(a.cree || "").localeCompare(String(b.cree || "")));
+  const done = S.todo.filter(t => t.fait).sort((a, b) => String(b.termineeLe || b.cree || "").localeCompare(String(a.termineeLe || a.cree || "")));
+  const item = t => `<div class="todo-row ${t.fait ? "done" : ""}">
+    <input type="checkbox" data-todo="${esc(t.id)}" ${t.fait ? "checked" : ""} aria-label="${t.fait ? "Remettre à faire" : "Marquer comme faite"} : ${esc(t.texte)}">
+    <span class="txt">${esc(t.texte)}${t.pour ? `<span class="due small muted">${t.pour < iso(now()) && !t.fait ? "En retard · " : "Pour "}${esc(shortDate(t.pour))}</span>` : ""}</span>
+    <button class="link danger" data-del="todo:${esc(t.id)}" type="button">supprimer</button>
+  </div>`;
+  const total = S.todo.length, checked = done.length, percent = total ? Math.round(checked / total * 100) : 0;
+  return `
+  <div class="card">
+    <div class="row between"><h2>Ma liste</h2><span class="muted small">${pending.length} à faire</span></div>
+    <p class="muted">Note ici les petites choses à ne pas oublier, en dehors des devoirs.</p>
+    ${total ? `<div class="progress" role="progressbar" aria-label="Liste terminée" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><i style="width:${percent}%"></i></div>` : ""}
+    ${pending.length ? pending.map(item).join("") : `<div class="empty"><div class="doodle">✓</div><p>Rien à faire pour le moment.</p><p class="small">Ajoute une petite tâche quand tu en as besoin.</p></div>`}
+  </div>
+  <div class="card"><details ${pending.length ? "" : "open"}><summary>Ajouter une tâche</summary>
+    <form data-form="todo" class="row" style="margin-top:10px">
+      <label class="f" style="flex-basis:100%">À ne pas oublier<input name="texte" maxlength="120" required placeholder="Ex. préparer mon sac"></label>
+      <label class="f">Pour le (facultatif)<input name="pour" type="date"></label>
+      <button class="btn" type="submit">Ajouter à ma liste</button>
+    </form>
+  </details></div>
+  ${done.length ? `<div class="card"><details><summary>Terminées (${done.length})</summary><div style="margin-top:8px">${done.slice(0, 50).map(item).join("")}</div></details></div>` : ""}
   ${datalist()}`;
 }
 
@@ -825,6 +860,7 @@ document.addEventListener("change", e => {
   const t = e.target;
   if (t.dataset.routine) { const st = routineState(); st[t.dataset.routine] = t.checked; local.set("routine-" + iso(now()), st); render(); if (t.checked && Object.values(st).filter(Boolean).length >= 4) toast("Super, continue comme ça !"); }
   if (t.dataset.fait) upd("devoirs", t.dataset.fait, { fait: t.checked });
+  if (t.dataset.todo) upd("todo", t.dataset.todo, { fait: t.checked, termineeLe: t.checked ? new Date().toISOString() : null });
   if (t.id === "imp-file" && t.files[0]) runImport(t.files[0]);
   if (t.dataset.impi != null && imp?.items) imp.items[Number(t.dataset.impi)]._on = t.checked;
 });
@@ -836,6 +872,7 @@ document.addEventListener("submit", async e => {
   if (kind === "edt") data.jour = Number(data.jour);
   if (kind === "notes") { data.note = Number(data.note); data.sur = Number(data.sur) || 20; data.coef = Number(data.coef) || 1; }
   if (kind === "devoirs") data.fait = false;
+  if (kind === "todo") { data.texte = String(data.texte || "").trim(); if (!data.texte) return toast("Écris une tâche avant de l’ajouter."); data.fait = false; if (!data.pour) delete data.pour; }
   if (kind === "vu") data.maitrise = 0;
   if (kind === "erreurs") { data.date = iso(now()); data.revues = []; data.maitrise = false; }
   await add(kind, data);
